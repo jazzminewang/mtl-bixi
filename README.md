@@ -8,3 +8,5 @@ Relevent data is stored in the following directories and was downloaded from Mon
 
 # Install
 conda env create -f environment.yml
+
+# Notes:
