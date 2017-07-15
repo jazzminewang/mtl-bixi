@@ -6,7 +6,8 @@ import LatLon
 import urllib2
 import json
 import time
-myapikey="AIzaSyA3gkwI5NRxt_m4vfQW6CZd5qpna0SaRyw"
+
+myapikey=open('googkey1.txt', 'r').read()
 
 def load_latest_bixi(stations=pd.DataFrame(columns={'name', 'new', 'moved', 'lat', 'lon', 'num_bikes', 'num_docks', 'last_update', 'll'})):
     url = "https://secure.bixi.com/data/stations.json"
@@ -125,7 +126,6 @@ def open_google(user_origin, user_dest, spd):
 def test_launch():
     user_origin = "Musee Redpath"
     user_dest = "Desjardins Lab, Rene-Levesque Boulevard West, Montreal, QC, Canada"
-
     spd = load_latest_bixi()
     open_google(user_origin, user_dest, spd)
 
