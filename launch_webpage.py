@@ -7,6 +7,7 @@ import urllib2
 import json
 import time
 from datetime import datetime
+from unidecode import unidecode
 myapikey=open('googkey1.txt', 'r').read()
 
 def load_latest_bixi(stations=pd.DataFrame(columns={'name', 'new', 'moved', 'lat', 'lon', 'num_bikes', 'num_docks', 'last_update', 'll'})):
@@ -14,8 +15,11 @@ def load_latest_bixi(stations=pd.DataFrame(columns={'name', 'new', 'moved', 'lat
     response = urllib2.urlopen(url)
     data = json.load(response)
     n = datetime.now()
-    fn = 'bixi_%04d%02d%02d_%02d%02d.json' %(n.year, n.month, n.day, n.hour, n.minute)
-    json.dump(data, open(fn))
+    sdir = 'station_logs'
+    if not os.path.isdir(sdir):
+        os.mkdir(sdir)
+    fn = os.path.join(sdir, 'bixi_%04d%02d%02d_%02d%02d.json' %(n.year, n.month, n.day, n.hour, n.minute))
+    json.dump(data, open(fn, 'w'))
     existing_station_codes = list(stations.index)
     for station in data['stations']:
         station_code = station['n']
@@ -43,12 +47,12 @@ def load_latest_bixi(stations=pd.DataFrame(columns={'name', 'new', 'moved', 'lat
             ll = LatLon.LatLon(LatLon.Latitude(lat), LatLon.Longitude(lon))
             cols = ['name', 'new', 'moved', 'lon', 
                     'lat', 'num_bikes', 'num_docks', 'last_update', 'll']
-            vals = [station['s'], True, True, lon, 
+            vals = [unidecode(station['s']).encode('ascii'), True, True, lon, 
                     lat, num_bikes, num_docks, last_update, ll]
             
             stations.loc[station_code, cols] = vals
                     
-    return stations
+    return stations, fn
         
 
 def find_distance_to_stations(ulat, ulon, lspd):
@@ -129,7 +133,7 @@ def open_google(user_origin, user_dest, spd):
 def test_launch():
     user_origin = "Musee Redpath"
     user_dest = "Desjardins Lab, Rene-Levesque Boulevard West, Montreal, QC, Canada"
-    spd = load_latest_bixi()
+    spd,f = load_latest_bixi()
     open_google(user_origin, user_dest, spd)
 
 

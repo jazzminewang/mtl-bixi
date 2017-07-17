@@ -21,7 +21,7 @@ def load_stats(station_location_files=[], sfile='stations.csv', shp_file='../geo
         import geopandas
         import LatLon
         from unidecode import unidecode
-
+        from shapely.geometry import Point
         loc_files = station_location_files
         loclist = []
         for ll in loc_files:
@@ -56,6 +56,7 @@ def load_stats(station_location_files=[], sfile='stations.csv', shp_file='../geo
         blocs.index = blocs['code']
         # read shape file of region
         mtlbr = gpd.read_file(shp_file)
+
         pps = [Point(pt) for pt in zip(blocs['longitude'], blocs['latitude'])]
         nns = []
         for pp in pps:
