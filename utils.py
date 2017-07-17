@@ -2,12 +2,6 @@ import numpy as np
 import pandas as pd
 from glob import glob
 import os
-from workalendar import canada
-from workalendar import usa
-import LatLon
-from kitchen.text.converters import to_unicode
-from unidecode import unidecode
-import geocoder
 
 def load_loc(name):
     l = pd.read_csv(name, encoding='utf-8')
@@ -17,24 +11,17 @@ def load_loc(name):
     print('loaded %s station locations from:%s' %(name, l.shape[0]))
     return l
 
-def format_station_print(l):
-    l = to_unicode(l)
-    if to_unicode("Metro") in l:
-        return ' '.join(l.split(' ')[:2])
-    # remove helpers
-    for dd in ['de ', 'du ', "(Sud)"]:
-        if dd in l:
-            l = l.replace(dd, '')
-    if ' / ' in l:
-        l = l.replace(' / ', '/')
-    return l.strip()
-
-def load_stats(station_location_files=[], sfile='stations.csv'):
+def load_stats(station_location_files=[], sfile='stations.csv', shp_file='../geo/limadmin-shp/LIMADMIN.shp'):
     if os.path.exists(sfile):
         print("Loading station infromation from saved file")
         blocs = pd.read_csv(sfile)
     else:
         print("Creating station information file with relevant information")
+        import geocoder
+        import geopandas
+        import LatLon
+        from unidecode import unidecode
+
         loc_files = station_location_files
         loclist = []
         for ll in loc_files:
@@ -60,13 +47,25 @@ def load_stats(station_location_files=[], sfile='stations.csv'):
     
         nbl = []
         for bl in blocs['name']:
-            #nbl.append(format_station_print(bl))
             t=unidecode(bl)
             t.encode("ascii")  #works fine, because all non-ASCII from s are replaced with their equivalents
             nbl.append(t) 
         blocs['name fmt'] = nbl
         # remove names which are not easily written to file
         del blocs['name']
+        blocs.index = blocs['code']
+        # read shape file of region
+        mtlbr = gpd.read_file(shp_file)
+        pps = [Point(pt) for pt in zip(blocs['longitude'], blocs['latitude'])]
+        nns = []
+        for pp in pps:
+            shp_indx = np.argmax(mtlbr['geometry'].contains(pp))
+            nns.append(shp_indx)
+            
+        blocs['neighborhood code'] = nns
+        nnames = np.array(mtlbr.loc[nns,'NOM'].map(lambda x: unidecode(x).encode('ascii')))
+        blocs['neighborhood'] = nnames
+
         blocs.to_csv(sfile)
     return blocs
 
@@ -84,7 +83,6 @@ def load_default():
     month = '*' #'05'
     data_base_path = 'data'
     bicycle_files = glob(os.path.join(data_base_path, 'bikes', "BixiMontrealRentals%s/OD_%s-%s.csv"%(year,year,month)))
-    print(bicycle_files)
     loc_files = glob(os.path.join(data_base_path, 'bikes', "BixiMontrealRentals%s"%year, "Station*.csv"))
     # historical weather gathered from http://climate.weather.gc.ca
     weather_files = glob(os.path.join(data_base_path, 'airport-weather', '*.csv'))
@@ -99,20 +97,19 @@ def load_all(sfile='station.csv', bfile='bike_all.csv',  wfile='weather.csv', bi
     wbdata = load_bike_files(blocs, weather, bfile=bfile, bike_files=bike_files)
     return blocs, weather, weather_code_names, wbdata
 
-def load_bike_files(blocs, weather, bfile='bike_all.csv', bike_files=[]):
+def load_bike_files(blocs, weather, bfile='bike_all.csv', sfile='stations.csv', bike_files=[]):
     if os.path.exists(bfile):
         print("Loading bikes with weather from saved file")
         wbdata = pd.read_csv(bfile)
     else:
         print("Creating merged bike file with weather, this may take some time")
-
+        from workalendar import canada
+        from workalendar import usa
         blist = []
         for bb in bike_files:
             blist.append(load_bike(bb))
         bdata = pd.concat(blist)
         bdata['all index'] = np.arange(bdata.shape[0])
-        # o inclume data for members of bixi and throw out occassional users
-        #bdata = bdata[bdata['is_member']>0]
         bdata['duration_min'] = bdata['duration_sec']/60.0
         # get day of week of each start of bike ride
         print("Adding date/time information")
@@ -143,6 +140,7 @@ def load_bike_files(blocs, weather, bfile='bike_all.csv', bike_files=[]):
         # dd lat lon information to data
         print("Adding start/end station information")
         codes = blocs['code'].unique()
+        blocs.index = blocs['code']
         bdata['start_lat'] = np.zeros(bdata.shape[0])
         bdata['start_lon'] = np.zeros(bdata.shape[0])
         bdata['end_lat'] = np.zeros(bdata.shape[0])
@@ -151,6 +149,14 @@ def load_bike_files(blocs, weather, bfile='bike_all.csv', bike_files=[]):
         bdata['start_station_name'] = np.zeros(bdata.shape[0])
         bdata['start_station_elev'] = np.zeros(bdata.shape[0])
         bdata['end_station_elev'] = np.zeros(bdata.shape[0])
+        # init location with count data
+        blocs['start_events_member'] = np.zeros(blocs.shape[0])
+        blocs['start_events_casual'] = np.zeros(blocs.shape[0])
+        blocs['end_events__member'] = np.zeros(blocs.shape[0])
+        blocs['end_events_casual'] = np.zeros(blocs.shape[0])
+        blocs['start_events'] = np.zeros(blocs.shape[0])
+        blocs['end_events'] = np.zeros(blocs.shape[0])
+
         for code in codes:
             station_name = str(blocs[blocs.loc[:,'code']==code]['name fmt'])
             station_lat =  float(blocs[blocs.loc[:,'code']==code]['latitude'])
@@ -159,16 +165,30 @@ def load_bike_files(blocs, weather, bfile='bike_all.csv', bike_files=[]):
             print('working on code: %s: %s, (%s, %s, %s)' %(code, station_name, 
                                       station_lat, station_lon, station_elev))
             _start = bdata['start_station_code']==code
-            bdata.loc[_start, 'start_station_name'] = station_name 
-            bdata.loc[_start, 'start_station_elev'] = station_elev
-            bdata.loc[_start, 'start_lat'] = station_lat
-            bdata.loc[_start, 'start_lon'] = station_lon
+            num_start_stat = _start.shape[0]
+            if num_start_stat:
+                num_start_mem = np.sum(bdata.loc[_start,'is_member'])
+                bdata.loc[_start, 'start_station_name'] = station_name 
+                bdata.loc[_start, 'start_station_elev'] = station_elev
+                bdata.loc[_start, 'start_lat'] = station_lat
+                bdata.loc[_start, 'start_lon'] = station_lon
+                blocs.loc[code, 'start_events'] = num_start_stat
+                blocs.loc[code, 'start_events_member'] = num_start_mem
+                blocs.loc[code, 'start_events_casual'] = num_start_stat-num_start_mem
             _end = bdata['end_station_code']==code
-            bdata.loc[_end,  'end_station_name'] = station_name
-            bdata.loc[_end, 'end_station_elev'] = station_elev
-            bdata.loc[_end, 'end_lat'] = station_lat
-            bdata.loc[_end, 'end_lon'] = station_lon
+            num_end_stat = _end.shape[0]
+            if num_end_stat:
+                num_end_mem = np.sum(bdata.loc[_end,'is_member'])
+                bdata.loc[_end,  'end_station_name'] = station_name
+                bdata.loc[_end, 'end_station_elev'] = station_elev
+                bdata.loc[_end, 'end_lat'] = station_lat
+                bdata.loc[_end, 'end_lon'] = station_lon
+                blocs.loc[code, 'end_events'] = num_end_stat
+                blocs.loc[code, 'end_events__member'] = num_end_mem
+                blocs.loc[code, 'end_events_casual'] = num_end_stat-num_end_mem
+            from IPython import embed; embed()
      
+        blocs.to_csv(sfile)
         bdata['elev change'] = bdata['start_station_elev'] - bdata['end_station_elev']
         print("merging weather information")
         # for simplicity, find nearest hour of rack event
@@ -179,6 +199,7 @@ def load_bike_files(blocs, weather, bfile='bike_all.csv', bike_files=[]):
         bdata['end hour'] = bdata['end hour'].dt.hour
         weather['weather start datehour'] = pd.DatetimeIndex(weather['dt']).round("1h")
         wbdata = pd.merge(bdata, weather, left_on='start datehour', right_on='weather start datehour', how='left')
+        print("Writing bike data to file")
         wbdata.to_csv(bfile)
     return wbdata
 
@@ -223,13 +244,12 @@ def load_weather(wfile='weather.csv', weather_files=[]):
         
         weather.loc[weather['Weather Fill'].str.contains('Drizzle'),'Weather Code'] = 1 
         weather.loc[weather['Weather Fill'].str.contains('Fog'),'Weather Code'] = 1
-        weather.loc[weather['Weather Fill'].str.contains('Rain'),'Weather Code'] = 3
-        weather.loc[weather['Weather Fill'].str.contains('Snow'),'Weather Code'] = 4
-        weather.loc[weather['Weather Fill'].str.contains('Thunderstrom'),'Weather Code'] = 5
-        weather.loc[weather['Weather Fill'].str.contains('Freezing'),'Weather Code'] = 6
+        weather.loc[weather['Weather Fill'].str.contains('Rain'),'Weather Code'] = 2 
+        weather.loc[weather['Weather Fill'].str.contains('Snow'),'Weather Code'] =3 
+        weather.loc[weather['Weather Fill'].str.contains('Thunderstrom'),'Weather Code'] = 4
+        weather.loc[weather['Weather Fill'].str.contains('Freezing'),'Weather Code'] = 5
         weather.loc[weather['Weather Fill'].str.contains('Ice'),'Weather Code'] = 6
         weather.to_csv(wfile)
     return weather, weather_code_names
 if __name__ == '__main__':
-
     load_default()
