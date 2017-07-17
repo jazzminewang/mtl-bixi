@@ -81,8 +81,10 @@ def load_bike(bb):
  
 def load_default():
     year = '2016' #* for all
+    month = '*' #'05'
     data_base_path = 'data'
-    bicycle_files = glob(os.path.join(data_base_path, 'bikes', "BixiMontrealRentals%s"%year, "OD*.csv"))
+    bicycle_files = glob(os.path.join(data_base_path, 'bikes', "BixiMontrealRentals%s/OD_%s-%s.csv"%(year,year,month)))
+    print(bicycle_files)
     loc_files = glob(os.path.join(data_base_path, 'bikes', "BixiMontrealRentals%s"%year, "Station*.csv"))
     # historical weather gathered from http://climate.weather.gc.ca
     weather_files = glob(os.path.join(data_base_path, 'airport-weather', '*.csv'))
@@ -124,7 +126,7 @@ def load_bike_files(blocs, weather, bfile='bike_all.csv', bike_files=[]):
         bdata.loc[:,'day of year'] = dtt.dayofyear
         bdata.loc[:, 'isweekday'] = bdata['weekday']<5
         bdata['instance'] = np.ones(bdata.shape[0])
-        
+         
         # determine if day is a holiday
         print("calculating holidays")
         holidays = []
@@ -139,16 +141,23 @@ def load_bike_files(blocs, weather, bfile='bike_all.csv', bike_files=[]):
         holidays = pd.Series(holidays).dt.date
         bdata.loc[:,'isholiday'] = bdata['date'].isin(holidays).astype(np.int) 
         # dd lat lon information to data
+        print("Adding start/end station information")
         codes = blocs['code'].unique()
         bdata['start_lat'] = np.zeros(bdata.shape[0])
         bdata['start_lon'] = np.zeros(bdata.shape[0])
         bdata['end_lat'] = np.zeros(bdata.shape[0])
         bdata['end_lon'] = np.zeros(bdata.shape[0])
+        bdata['end_station_name'] = np.zeros(bdata.shape[0])
+        bdata['start_station_name'] = np.zeros(bdata.shape[0])
+        bdata['start_station_elev'] = np.zeros(bdata.shape[0])
+        bdata['end_station_elev'] = np.zeros(bdata.shape[0])
         for code in codes:
-            station_name = blocs[blocs.loc[:,'code']==code]['name fmt']
-            station_lat = blocs[blocs.loc[:,'code']==code]['latitude']
-            station_lon = blocs[blocs.loc[:,'code']==code]['longitude']
-            station_elev = blocs[blocs.loc[:,'code']==code]['elev']
+            station_name = str(blocs[blocs.loc[:,'code']==code]['name fmt'])
+            station_lat =  float(blocs[blocs.loc[:,'code']==code]['latitude'])
+            station_lon = float(blocs[blocs.loc[:,'code']==code]['longitude'])
+            station_elev = float(blocs[blocs.loc[:,'code']==code]['elev'])
+            print('working on code: %s: %s, (%s, %s, %s)' %(code, station_name, 
+                                      station_lat, station_lon, station_elev))
             _start = bdata['start_station_code']==code
             bdata.loc[_start, 'start_station_name'] = station_name 
             bdata.loc[_start, 'start_station_elev'] = station_elev
@@ -160,13 +169,16 @@ def load_bike_files(blocs, weather, bfile='bike_all.csv', bike_files=[]):
             bdata.loc[_end, 'end_lat'] = station_lat
             bdata.loc[_end, 'end_lon'] = station_lon
      
+        bdata['elev change'] = bdata['start_station_elev'] - bdata['end_station_elev']
+        print("merging weather information")
         # for simplicity, find nearest hour of rack event
         bdata['start hour'] = pd.to_datetime(pd.DatetimeIndex(bdata['start_date']).round("1h"))#.dt.hour
         bdata['start hour'] = bdata['start hour'].dt.hour
         bdata['start datehour'] = pd.DatetimeIndex(bdata['start_date']).round("1h")
         bdata['end hour'] = pd.to_datetime(pd.DatetimeIndex(bdata['end_date']).round("1h"))#.dt.hour
         bdata['end hour'] = bdata['end hour'].dt.hour
-        wbdata = pd.merge(bdata, weather, left_on='start datehour', right_on='dt', how='left')
+        weather['weather start datehour'] = pd.DatetimeIndex(weather['dt']).round("1h")
+        wbdata = pd.merge(bdata, weather, left_on='start datehour', right_on='weather start datehour', how='left')
         wbdata.to_csv(bfile)
     return wbdata
 
@@ -218,4 +230,6 @@ def load_weather(wfile='weather.csv', weather_files=[]):
         weather.loc[weather['Weather Fill'].str.contains('Ice'),'Weather Code'] = 6
         weather.to_csv(wfile)
     return weather, weather_code_names
-  
+if __name__ == '__main__':
+
+    load_default()

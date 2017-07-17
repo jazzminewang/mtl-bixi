@@ -6,13 +6,16 @@ import LatLon
 import urllib2
 import json
 import time
-
+from datetime import datetime
 myapikey=open('googkey1.txt', 'r').read()
 
 def load_latest_bixi(stations=pd.DataFrame(columns={'name', 'new', 'moved', 'lat', 'lon', 'num_bikes', 'num_docks', 'last_update', 'll'})):
     url = "https://secure.bixi.com/data/stations.json"
     response = urllib2.urlopen(url)
     data = json.load(response)
+    n = datetime.now()
+    fn = 'bixi_%04d%02d%02d_%02d%02d.json' %(n.year, n.month, n.day, n.hour, n.minute)
+    json.dump(data, open(fn))
     existing_station_codes = list(stations.index)
     for station in data['stations']:
         station_code = station['n']
