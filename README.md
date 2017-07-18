@@ -1,12 +1,16 @@
 # mtl-bixi
-repo to understand montreal bixi data
+Repo to process and plot Montreal Bixi data
 
-Relevent data is stored in the following directories and was downloaded from Montreal open data initiative. 
---data
----bikes
----airport-weather
+To get started, download and unzip the pre-organized data from below in the main directory.
+Data Download:
+
+Plotting and exploration available in bike.ipynb
+launch_webpage.py will find directions through nearest available bixi stations
+get_stations.py queries bixi website
 
 # Install
 conda env create -f environment.yml
 
-# Notes:
+# Station Movement
++![Screenshot](plots/station_popularity.gif)
+
