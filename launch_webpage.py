@@ -100,12 +100,10 @@ def find_nearest_checkout_station(userloc, spd):
 
 
 def calc_route(origin, dest, how='walking'):
-
-    dirmyapikey = "AIzaSyDBfClCWLI7ruwY-79sakIAKEiin2FNKUc"
     call = "https://maps.googleapis.com/maps/api/directions/json?origin=%s&destination=%s&departure_time=%s&mode=%s&traffic_model=best_guess&key=%s" 
     dtt = int(time.time())
     call = call%(origin.replace(' ', '+'), dest.replace(' ','+'), 
-                 dtt, how, dirmyapikey)
+                 dtt, how, myapikey)
     r = urllib2.urlopen(call)
     data = json.load(r)
     dis_meters = data['routes'][0]['legs'][0]['distance']['value']
@@ -121,18 +119,20 @@ def open_google(user_origin, user_dest, spd):
     nearest_dest_bixi, dspd = find_nearest_checkin_station(user_dest, spd)
 
 
-    mapcall = "https://www.google.com/maps/dir/?api=1&origin=origin=%s&waypoints=%s|%s&destination=%s&travelmode=bicycling" %(
+    mapcall = "https://www.google.com/maps/dir/?api=1&origin=%s&waypoints=%s|%s&destination=%s&travelmode=bicycling" %(
           user_origin, nearest_origin_bixi, nearest_dest_bixi, user_dest)
     webbrowser.open(mapcall)
-    #bike_dist, bike_secs = calc_route(nearest_origin_bixi, nearest_dest_bixi, 'biking')
-    #org_walk_dist, org_walk_secs = calc_route(user_origin, nearest_origin_bixi, 'walking')
-    #dest_walk_dist, dest_walk_secs = calc_route(nearest_dest_bixi, user_dest, 'walking')
-    #total_walked_m = dest_walk_dist + org_walk_dist
-    #walk_calories = calc_walk_calories(total_walked_m)
+    bike_dist, bike_secs = calc_route(nearest_origin_bixi, nearest_dest_bixi, 'biking')
+    org_walk_dist, org_walk_secs = calc_route(user_origin, nearest_origin_bixi, 'walking')
+    dest_walk_dist, dest_walk_secs = calc_route(nearest_dest_bixi, user_dest, 'walking')
+    total_walked_m = dest_walk_dist + org_walk_dist
+    walk_calories = calc_walk_calories(total_walked_m)
+    print("total walking distance: %s m" %total_walked_m)
+    print("total biking distance: %s m" %bike_dist)
     
 def test_launch():
-    user_origin = "Musee Redpath"
-    user_dest = "Desjardins Lab, Rene-Levesque Boulevard West, Montreal, QC, Canada"
+    user_origin = "4398 Blvd Saint-Laurent, Montreal, QC "
+    user_dest = "Beneluxe, Montreal, QC"
     spd,f = load_latest_bixi()
     open_google(user_origin, user_dest, spd)
 

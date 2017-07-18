@@ -18,7 +18,7 @@ def load_stats(station_location_files=[], sfile='stations.csv', shp_file='../geo
     else:
         print("Creating station information file with relevant information")
         import geocoder
-        import geopandas
+        import geopandas as gpd
         import LatLon
         from unidecode import unidecode
         from shapely.geometry import Point
@@ -153,7 +153,7 @@ def load_bike_files(blocs, weather, bfile='bike_all.csv', sfile='stations.csv', 
         # init location with count data
         blocs['start_events_member'] = np.zeros(blocs.shape[0])
         blocs['start_events_casual'] = np.zeros(blocs.shape[0])
-        blocs['end_events__member'] = np.zeros(blocs.shape[0])
+        blocs['end_events_member'] = np.zeros(blocs.shape[0])
         blocs['end_events_casual'] = np.zeros(blocs.shape[0])
         blocs['start_events'] = np.zeros(blocs.shape[0])
         blocs['end_events'] = np.zeros(blocs.shape[0])
@@ -166,7 +166,7 @@ def load_bike_files(blocs, weather, bfile='bike_all.csv', sfile='stations.csv', 
             print('working on code: %s: %s, (%s, %s, %s)' %(code, station_name, 
                                       station_lat, station_lon, station_elev))
             _start = bdata['start_station_code']==code
-            num_start_stat = _start.shape[0]
+            num_start_stat = np.sum(_start)
             if num_start_stat:
                 num_start_mem = np.sum(bdata.loc[_start,'is_member'])
                 bdata.loc[_start, 'start_station_name'] = station_name 
@@ -177,7 +177,7 @@ def load_bike_files(blocs, weather, bfile='bike_all.csv', sfile='stations.csv', 
                 blocs.loc[code, 'start_events_member'] = num_start_mem
                 blocs.loc[code, 'start_events_casual'] = num_start_stat-num_start_mem
             _end = bdata['end_station_code']==code
-            num_end_stat = _end.shape[0]
+            num_end_stat = np.sum(_end)
             if num_end_stat:
                 num_end_mem = np.sum(bdata.loc[_end,'is_member'])
                 bdata.loc[_end,  'end_station_name'] = station_name
@@ -185,9 +185,9 @@ def load_bike_files(blocs, weather, bfile='bike_all.csv', sfile='stations.csv', 
                 bdata.loc[_end, 'end_lat'] = station_lat
                 bdata.loc[_end, 'end_lon'] = station_lon
                 blocs.loc[code, 'end_events'] = num_end_stat
-                blocs.loc[code, 'end_events__member'] = num_end_mem
+                blocs.loc[code, 'end_events_member'] = num_end_mem
                 blocs.loc[code, 'end_events_casual'] = num_end_stat-num_end_mem
-            from IPython import embed; embed()
+            #from IPython import embed; embed()
      
         blocs.to_csv(sfile)
         bdata['elev change'] = bdata['start_station_elev'] - bdata['end_station_elev']
