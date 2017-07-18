@@ -11,6 +11,7 @@ from unidecode import unidecode
 myapikey=open('googkey1.txt', 'r').read()
 
 def load_latest_bixi(stations=pd.DataFrame(columns={'name', 'new', 'moved', 'lat', 'lon', 'num_bikes', 'num_docks', 'last_update', 'll'})):
+    print("Using station", stations)
     url = "https://secure.bixi.com/data/stations.json"
     response = urllib2.urlopen(url)
     data = json.load(response)
@@ -29,10 +30,9 @@ def load_latest_bixi(stations=pd.DataFrame(columns={'name', 'new', 'moved', 'lat
         num_docks = station['da']
         last_update = station['lu']
         if station_code in existing_station_codes:
-            station.loc[station_code, 'new'] = False
-            cols = ['new', 'num_bikes', 'num_docks', 'last_update', 'll']
-            
-            vals = [False, num_bikes, num_docks, last_update, ll]
+            stations.loc[station_code, 'new'] = False
+            cols = ['new', 'num_bikes', 'num_docks', 'last_update']
+            vals = [False, num_bikes, num_docks, last_update]
             # check if lat/lon changed
             if not ((stations.loc[station_code,'lat']==lat) and
                     (stations.loc[station_code,'lon']==lon)):
