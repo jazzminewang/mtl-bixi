@@ -1,7 +1,7 @@
 # Introduction
 Repo to process and plot Montreal Bixi data
 
-To get started, download and unzip the pre-organized data from below in the main directory.
+To get started, download and unzip the pre-organized data so that the .csvs are in the main directory.
 
 Data Download: 
 https://www.dropbox.com/s/000vvq6ck2ab5zp/data_zip.zip?dl=0
