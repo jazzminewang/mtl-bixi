@@ -11,7 +11,8 @@ https://www.dropbox.com/s/000vvq6ck2ab5zp/data_zip.zip?dl=0
 - get_stations.py queries bixi website 
 
 # Install Dependencies 
-```conda env create -f environment.yml -n bike_py27 
+```
+conda env create -f environment.yml -n bike_py27 
 source activate bike_py27 
 ```
 
